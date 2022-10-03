@@ -66,3 +66,9 @@ private: // メンバ変数
 	Object3d* object3d = nullptr;
 };
 
+template<typename T>
+inline void safe_delete(T*& p)
+{
+	delete p;
+	p = nullptr;
+}
