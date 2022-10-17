@@ -5,6 +5,7 @@
 #include <d3d12.h>
 #include <DirectXMath.h>
 #include <d3dx12.h>
+#include "Input.h"
 
 /// <summary>
 /// 3Dオブジェクト
@@ -149,6 +150,10 @@ private: // 静的メンバ変数
 	// 頂点インデックス配列
 	//static unsigned short indices[planeCount * 3];
 	static unsigned short indices[indexCount];
+	// ビルボード行列
+	static XMMATRIX matBillboard;
+	// Y軸回りビルボード行列
+	static XMMATRIX matBillboardY;
 
 private:// 静的メンバ関数
 	/// <summary>
@@ -222,5 +227,7 @@ private: // メンバ変数
 	XMMATRIX matWorld;
 	// 親オブジェクト
 	Object3d* parent = nullptr;
+	// キーボード入力
+	Input* input = nullptr;
 };
 
