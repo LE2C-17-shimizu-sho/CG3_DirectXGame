@@ -39,6 +39,5 @@ void main(
         element.uv = uv_array[i];
         output.Append(element);
     }
-
 }
 
