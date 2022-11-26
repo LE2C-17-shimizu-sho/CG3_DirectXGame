@@ -30,7 +30,7 @@ void main(
     element.svpos = input[0].svpos; // 頂点座標をコピー
     output.Append(element);
     // 2点目
-    element.svpos = input[0].svpos + float4(10.0f,10.0f,0,0); // 頂点座標をコピー
+    element.svpos = input[0].svpos + float4(10.0f, 10.0f, 0, 0); // 頂点座標をコピー
     output.Append(element);
     // 3点目
     element.svpos = input[0].svpos + float4(10.0f, 0, 0, 0); // 頂点座標をコピー

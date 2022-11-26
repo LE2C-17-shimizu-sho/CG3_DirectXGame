@@ -433,7 +433,7 @@ void Object3d::CreateModel()
 {
 	HRESULT result = S_FALSE;
 
-	std::vector<VertexPosNormalUv> realVertices;
+	//std::vector<VertexPosNormalUv> realVertices;
 #pragma region 頂点座標の計算
 	//// 頂点座標の計算（重複あり）
 	//{
@@ -553,15 +553,12 @@ void Object3d::CreateModel()
 	//	XMStoreFloat3(&vertices[index2].normal, normal);
 	//}
 #pragma endregion
-	//// 四角形の頂点データ
-	//VertexPosNormalUv verticesSpuare[] = {
-	//	{{-5.0f,-5.0f,0.0f}, {0,0,1},{0,1}},//左下
-	//	{{-5.0f,+5.0f,0.0f}, {0,0,1},{0,0}},//左上
-	//	{{+5.0f,-5.0f,0.0f}, {0,0,1},{1,1}},//右下
-	//	{{+5.0f,+5.0f,0.0f}, {0,0,1},{1,0}},//右上
-	//};
+	// 四角形の頂点データ
+	VertexPosNormalUv verticesSpuare[] = {
+		{{0.0f,0.0f,0.0f}, {0,0,1},{0,1}},//左下
+	};
 	//メンバ変数にコピー
-	//std::copy(std::begin(verticesSpuare), std::end(verticesSpuare), vertices);
+	std::copy(std::begin(verticesSpuare), std::end(verticesSpuare), vertices);
 
 	//四角形のインデックスデータ
 	//unsigned short indicesSpuare[] = {
