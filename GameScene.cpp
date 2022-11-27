@@ -41,7 +41,7 @@ void GameScene::Initialize(DirectXCommon* dxCommon, Input* input)
 	// 3Dオブジェクト生成
 	object3d = Object3d::Create();
 	object3d->Update();
-	object3d->BillBoardUpdate();
+	//object3d->BillBoardUpdate();
 	// パーティクル生成
 	particleMan = ParticleManager::Create();
 	particleMan->Update();
@@ -62,18 +62,20 @@ void GameScene::Update()
 {
 	switch (scene_)
 	{
-	case GameScene::Scene::Billboard:
+	case GameScene::Scene::BillboardON:
 		// オブジェクト移動
 		if (input->PushKey(DIK_UP) || input->PushKey(DIK_DOWN) || input->PushKey(DIK_RIGHT) || input->PushKey(DIK_LEFT))
 		{
 			// 現在の座標を取得
 			XMFLOAT3 position = object3d->GetPosition();
 
-			// 移動後の座標を計算
-			if (input->PushKey(DIK_UP)) { position.y += 1.0f; }
-			else if (input->PushKey(DIK_DOWN)) { position.y -= 1.0f; }
-			if (input->PushKey(DIK_RIGHT)) { position.x += 1.0f; }
-			else if (input->PushKey(DIK_LEFT)) { position.x -= 1.0f; }
+			position = { 100.0f,100.0f,100.0f };
+
+			//// 移動後の座標を計算
+			//if (input->PushKey(DIK_UP)) { position.y += 1.0f; }
+			//else if (input->PushKey(DIK_DOWN)) { position.y -= 1.0f; }
+			//if (input->PushKey(DIK_RIGHT)) { position.x += 1.0f; }
+			//else if (input->PushKey(DIK_LEFT)) { position.x -= 1.0f; }
 
 			// 座標の変更を反映
 			object3d->SetPosition(position);
@@ -102,14 +104,74 @@ void GameScene::Update()
 			sprite1->SetPosition(position);
 		}
 
-		if (input->TriggerKey(DIK_2))
+		if (input->TriggerKey(DIK_3))
 		{
 			scene_ = Scene::Particle;
 		}
+		else if (input->TriggerKey(DIK_2))
+		{
+			scene_ = Scene::BillboardOFF;
+		}
 		else
 		{
-			scene_ = Scene::Billboard;
+			scene_ = Scene::BillboardON;
 		}
+		break;
+
+	case GameScene::Scene::BillboardOFF:
+		// オブジェクト移動
+		if (input->PushKey(DIK_UP) || input->PushKey(DIK_DOWN) || input->PushKey(DIK_RIGHT) || input->PushKey(DIK_LEFT))
+		{
+			// 現在の座標を取得
+			XMFLOAT3 position = object3d->GetPosition();
+
+			position = { 100.0f,100.0f,100.0f };
+
+			//// 移動後の座標を計算
+			//if (input->PushKey(DIK_UP)) { position.y += 1.0f; }
+			//else if (input->PushKey(DIK_DOWN)) { position.y -= 1.0f; }
+			//if (input->PushKey(DIK_RIGHT)) { position.x += 1.0f; }
+			//else if (input->PushKey(DIK_LEFT)) { position.x -= 1.0f; }
+
+			// 座標の変更を反映
+			object3d->SetPosition(position);
+		}
+
+		// カメラ移動
+		if (input->PushKey(DIK_W) || input->PushKey(DIK_S) || input->PushKey(DIK_D) || input->PushKey(DIK_A))
+		{
+			if (input->PushKey(DIK_W)) { Object3d::CameraMoveEyeVector({ 0.0f,+1.0f,0.0f }); }
+			else if (input->PushKey(DIK_S)) { Object3d::CameraMoveEyeVector({ 0.0f,-1.0f,0.0f }); }
+			if (input->PushKey(DIK_D)) { Object3d::CameraMoveEyeVector({ +1.0f,0.0f,0.0f }); }
+			else if (input->PushKey(DIK_A)) { Object3d::CameraMoveEyeVector({ -1.0f,0.0f,0.0f }); }
+		}
+
+		object3d->BillBoardUpdate();
+
+		//スペースキーを押していたら
+		if (input->PushKey(DIK_SPACE))
+		{
+			//現在の座標を取得
+			XMFLOAT2 position = sprite1->GetPosition();
+			//移動後の座標を計算
+			position.x += 1.0f;
+			//座標の変更を反映
+			sprite1->SetPosition(position);
+		}
+
+		if (input->TriggerKey(DIK_3))
+		{
+			scene_ = Scene::Particle;
+		}
+		else if (input->TriggerKey(DIK_1))
+		{
+			scene_ = Scene::BillboardON;
+		}
+		else
+		{
+			scene_ = Scene::BillboardOFF;
+		}
+
 		break;
 
 	case GameScene::Scene::Particle:
@@ -137,7 +199,11 @@ void GameScene::Update()
 
 		if (input->TriggerKey(DIK_1))
 		{
-			scene_ = Scene::Billboard;
+			scene_ = Scene::BillboardON;
+		}
+		else if (input->TriggerKey(DIK_2))
+		{
+			scene_ = Scene::BillboardOFF;
 		}
 		else
 		{
@@ -174,13 +240,20 @@ void GameScene::Draw()
 	// 3Dオブクジェクトの描画
 	switch (scene_)
 	{
-	case GameScene::Scene::Billboard:
+	case GameScene::Scene::BillboardON:
 		Object3d::PreDraw(cmdList);
 		object3d->Draw();
+		Object3d::PostDraw();
+		break;
+	case Scene::BillboardOFF:
+		Object3d::PreDraw(cmdList);
+		object3d->Draw();
+		Object3d::PostDraw();
 		break;
 	case GameScene::Scene::Particle:
 		ParticleManager::PreDraw(cmdList);
 		particleMan->Draw();
+		ParticleManager::PostDraw();
 		break;
 	}
 
@@ -189,8 +262,8 @@ void GameScene::Draw()
 	/// </summary>
 
 	// 3Dオブジェクト描画後処理
-	Object3d::PostDraw();
-	ParticleManager::PostDraw();
+	
+
 #pragma endregion
 
 #pragma region 前景スプライト描画
@@ -204,8 +277,11 @@ void GameScene::Draw()
 	//sprite2->Draw();
 	switch (scene_)
 	{
-	case GameScene::Scene::Billboard:
+	case GameScene::Scene::BillboardON:
 		
+		break;
+	case Scene::BillboardOFF:
+
 		break;
 	case GameScene::Scene::Particle:
 		texture->Draw();

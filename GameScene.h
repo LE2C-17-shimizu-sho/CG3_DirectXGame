@@ -71,11 +71,12 @@ private: // メンバ変数
 
 	enum class Scene
 	{
-		Billboard,
+		BillboardON,
+		BillboardOFF,
 		Particle,
 	};
 
-	Scene scene_ = Scene::Billboard;
+	Scene scene_ = Scene::BillboardON;
 };
 
 template<typename T>

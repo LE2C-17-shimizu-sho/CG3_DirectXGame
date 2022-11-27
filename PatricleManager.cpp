@@ -349,7 +349,7 @@ void ParticleManager::InitializeGraphicsPipeline()
 	descRangeSRV.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0); // t0 レジスタ
 
 	// ルートパラメータ
-	CD3DX12_ROOT_PARAMETER rootparams[2];
+	CD3DX12_ROOT_PARAMETER rootparams[2]{};
 	rootparams[0].InitAsConstantBufferView(0, 0, D3D12_SHADER_VISIBILITY_ALL);
 	rootparams[1].InitAsDescriptorTable(1, &descRangeSRV, D3D12_SHADER_VISIBILITY_ALL);
 
@@ -637,11 +637,17 @@ void ParticleManager::Update()
 	// 頂点バッファへデータ転送
 	VertexPos* vertMap = nullptr;
 	result = vertBuff->Map(0, nullptr, (void**)&vertMap);
+	uint16_t count = 0;
 	if (SUCCEEDED(result)) {
 		// パーティクルの情報を一つずつ反映
 		for (std::forward_list<Particle>::iterator it = particles.begin();
 			it != particles.end();
 			it++) {
+
+			if (count == vertexCount)
+			{
+				break;
+			}
 			// 座標
 			vertMap->pos = it->position;
 			// スケール
@@ -650,6 +656,8 @@ void ParticleManager::Update()
 			vertMap->color = it->color;
 			// 次の頂点へ
 			vertMap++;
+
+			count++;
 		}
 		vertBuff->Unmap(0, nullptr);
 	}
@@ -682,7 +690,16 @@ void ParticleManager::Draw()
 	// シェーダリソースビューをセット
 	cmdList->SetGraphicsRootDescriptorTable(1, gpuDescHandleSRV);
 	// 描画コマンド_countof(indices)
-	cmdList->DrawInstanced((UINT)std::distance(particles.begin(), particles.end()), 1, 0, 0);
+		// 描画コマンド
+	if (std::distance(particles.begin(), particles.end()) < vertexCount)
+	{
+		cmdList->DrawInstanced(static_cast<UINT> (std::distance(particles.begin(), particles.end())), 1, 0, 0);
+	}
+	else
+	{
+		cmdList->DrawInstanced(vertexCount, 1, 0, 0);
+
+	}
 }
 
 void ParticleManager::Add(int life, XMFLOAT3 position, XMFLOAT3 velocity, XMFLOAT3 accel, float start_scale, float end_scale, XMFLOAT4 s_color, XMFLOAT4 e_color)
@@ -702,12 +719,11 @@ void ParticleManager::Add(int life, XMFLOAT3 position, XMFLOAT3 velocity, XMFLOA
 
 	p.s_color = s_color;
 	p.e_color = e_color;
-	p.color.w = 1.0f;
 }
 
 void ParticleManager::RandParticle()
 {
-	for (int i = 0; i < 100; i++)
+	for (int i = 0; i < 30; i++)
 	{
 		//X,Y,Z全て[-5.0f,+5.0f]でランダムに分布
 		const float rnd_pos = 10.0f;
@@ -733,6 +749,6 @@ void ParticleManager::RandParticle()
 		col.z = (float)rand() / RAND_MAX * rnd_col;
 
 		// 追加
-		Add(60, pos, vel, acc, 1.0f, 0.0f, {1,0,0,1}, {0,0,0,1});
+		Add(60, pos, vel, acc, 1.0f, 0.0f, { 1,0,1,1 }, { 1,0,1,1 });
 	}
 }
