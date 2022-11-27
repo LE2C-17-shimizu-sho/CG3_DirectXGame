@@ -25,7 +25,7 @@ CD3DX12_CPU_DESCRIPTOR_HANDLE ParticleManager::cpuDescHandleSRV;
 CD3DX12_GPU_DESCRIPTOR_HANDLE ParticleManager::gpuDescHandleSRV;
 XMMATRIX ParticleManager::matView{};
 XMMATRIX ParticleManager::matProjection{};
-XMFLOAT3 ParticleManager::eye = { 0, 0, -30.0f };
+XMFLOAT3 ParticleManager::eye = { 0, 0, -20.0f };
 XMFLOAT3 ParticleManager::target = { 0, 0, 0 };
 XMFLOAT3 ParticleManager::up = { 0, 1, 0 };
 D3D12_VERTEX_BUFFER_VIEW ParticleManager::vbView{};
@@ -276,6 +276,11 @@ void ParticleManager::InitializeGraphicsPipeline()
 	D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
 		{ // xy座標(1行で書いたほうが見やすい)
 			"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,
+			D3D12_APPEND_ALIGNED_ELEMENT,
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
+		},
+		{ // xy座標(1行で書いたほうが見やすい)
+			"TEXCOORD", 0, DXGI_FORMAT_R32_FLOAT, 0,
 			D3D12_APPEND_ALIGNED_ELEMENT,
 			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
 		},
@@ -790,6 +795,11 @@ void ParticleManager::Update()
 		it->velocity = it->velocity + it->accel;
 		// 速度による移動
 		it->position = it->position + it->velocity;
+		// 進行度を0~1の範囲に換算
+		float f = (float)it->frame / it->num_frame;
+		// スケールの線形補間
+		it->scale = (it->e_scale - it->s_scale) * f;
+		it->scale += it->s_scale;
 	}
 
 	// 寿命が尽きたパーティクルを全削除
@@ -809,6 +819,8 @@ void ParticleManager::Update()
 		{
 			// 座標
 			vertMap->pos = it->position;
+			// スケール
+			vertMap->scale = it->scale;
 			// 次の頂点へ
 			vertMap++;
 		}
@@ -849,7 +861,7 @@ void ParticleManager::Draw()
 	cmdList->DrawInstanced((UINT)std::distance(particles.begin(), particles.end()), 1, 0, 0);
 }
 
-void ParticleManager::Add(int life, XMFLOAT3 position, XMFLOAT3 velocity, XMFLOAT3 accel)
+void ParticleManager::Add(int life, XMFLOAT3 position, XMFLOAT3 velocity, XMFLOAT3 accel, float start_scale, float emd_scale)
 {
 	// リストに要素を追加
 	particles.emplace_front();
@@ -884,6 +896,6 @@ void ParticleManager::RandParticle()
 		acc.y = -(float)rand() / RAND_MAX * rnd_acc;
 
 		// 追加
-		Add(60, pos, vel, acc);
+		Add(60, pos, vel, acc,1.0f,0.0f);
 	}
 }
