@@ -76,9 +76,9 @@ void GameScene::Update()
 		if (input->PushKey(DIK_D)) { ParticleManager::CameraMoveEyeVector({ +1.0f,0.0f,0.0f }); }
 		else if (input->PushKey(DIK_A)) { ParticleManager::CameraMoveEyeVector({ -1.0f,0.0f,0.0f }); }
 	}
-
-	particleMan->Update();
 	particleMan->RandParticle();
+	particleMan->Update();
+
 	//スペースキーを押していたら
 	if (input->PushKey(DIK_SPACE))
 	{

@@ -135,11 +135,11 @@ public: // 静的メンバ関数
 
 private: // 静的メンバ変数
 	// デバイス
-	static ID3D12Device* device;
+	static ComPtr < ID3D12Device> device;
 	// デスクリプタサイズ
 	static UINT descriptorHandleIncrementSize;
 	// コマンドリスト
-	static ID3D12GraphicsCommandList* cmdList;
+	static ComPtr<ID3D12GraphicsCommandList> cmdList;
 	// ルートシグネチャ
 	static ComPtr<ID3D12RootSignature> rootsignature;
 	// パイプラインステートオブジェクト
@@ -233,7 +233,7 @@ public: // メンバ関数
 	/// <param name="position">初期座標</param>
 	/// <param name="velocity">速度</param>
 	/// <param name="accel">加速度</param>
-	void Add(int life, XMFLOAT3 position, XMFLOAT3 velocity, XMFLOAT3 accel,float start_scale,float emd_scale);
+	void Add(int life, XMFLOAT3 position, XMFLOAT3 velocity, XMFLOAT3 accel,float start_scale,float end_scale);
 
 	/// <summary>
 	/// ランダム値を設定

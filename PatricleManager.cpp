@@ -12,14 +12,13 @@ using namespace Microsoft::WRL;
 /// </summary>
 const float ParticleManager::radius = 5.0f;				// 底面の半径
 const float ParticleManager::prizmHeight = 8.0f;			// 柱の高さ
-ID3D12Device* ParticleManager::device = nullptr;
+ComPtr < ID3D12Device> ParticleManager::device;
 UINT ParticleManager::descriptorHandleIncrementSize = 0;
-ID3D12GraphicsCommandList* ParticleManager::cmdList = nullptr;
+ComPtr<ID3D12GraphicsCommandList> ParticleManager::cmdList;
 ComPtr<ID3D12RootSignature> ParticleManager::rootsignature;
 ComPtr<ID3D12PipelineState> ParticleManager::pipelinestate;
 ComPtr<ID3D12DescriptorHeap> ParticleManager::descHeap;
 ComPtr<ID3D12Resource> ParticleManager::vertBuff;
-//ComPtr<ID3D12Resource> Object3d::indexBuff;
 ComPtr<ID3D12Resource> ParticleManager::texbuff;
 CD3DX12_CPU_DESCRIPTOR_HANDLE ParticleManager::cpuDescHandleSRV;
 CD3DX12_GPU_DESCRIPTOR_HANDLE ParticleManager::gpuDescHandleSRV;
@@ -29,14 +28,11 @@ XMFLOAT3 ParticleManager::eye = { 0, 0, -20.0f };
 XMFLOAT3 ParticleManager::target = { 0, 0, 0 };
 XMFLOAT3 ParticleManager::up = { 0, 1, 0 };
 D3D12_VERTEX_BUFFER_VIEW ParticleManager::vbView{};
-//D3D12_INDEX_BUFFER_VIEW Object3d::ibView{};
 ParticleManager::VertexPos ParticleManager::vertices[vertexCount];
-//unsigned short Object3d::indices[planeCount * 3];
-//unsigned short Object3d::indices[indexCount];
 XMMATRIX ParticleManager::matBillboard = XMMatrixIdentity();
 XMMATRIX ParticleManager::matBillboardY = XMMatrixIdentity();
 
-// XMFLOAT3同士の加算処理
+//XMFLOAT3同士の加算処理
 const DirectX::XMFLOAT3 operator+(const DirectX::XMFLOAT3& lhs, const DirectX::XMFLOAT3& rhs)
 {
 	XMFLOAT3 result;
@@ -83,7 +79,6 @@ void ParticleManager::PreDraw(ID3D12GraphicsCommandList* cmdList)
 	// ルートシグネチャの設定
 	cmdList->SetGraphicsRootSignature(rootsignature.Get());
 	// プリミティブ形状を設定
-	//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
 }
 
@@ -96,19 +91,19 @@ void ParticleManager::PostDraw()
 ParticleManager* ParticleManager::Create()
 {
 	// 3Dオブジェクトのインスタンスを生成
-	ParticleManager* object3d = new ParticleManager();
-	if (object3d == nullptr) {
+	ParticleManager* particleMan = new ParticleManager();
+	if (particleMan == nullptr) {
 		return nullptr;
 	}
 
 	// 初期化
-	if (!object3d->Initialize()) {
-		delete object3d;
+	if (!particleMan->Initialize()) {
+		delete particleMan;
 		assert(0);
 		return nullptr;
 	}
 
-	return object3d;
+	return particleMan;
 }
 
 void ParticleManager::SetEye(XMFLOAT3 eye)
@@ -175,11 +170,9 @@ void ParticleManager::InitializeDescriptorHeap()
 void ParticleManager::InitializeCamera(int window_width, int window_height)
 {
 	// ビュー行列の生成
-	/*matView = XMMatrixLookAtLH(
-		XMLoadFloat3(&eye),
-		XMLoadFloat3(&target),
-		XMLoadFloat3(&up));*/
+	//matView = XMMatrixLookAtLH(XMLoadFloat3(&eye),XMLoadFloat3(&target),XMLoadFloat3(&up));
 
+	// ビュー行列の計算
 	UpdateViewMatrix();
 
 	// 平行投影による射影行列の生成
@@ -198,8 +191,8 @@ void ParticleManager::InitializeCamera(int window_width, int window_height)
 void ParticleManager::InitializeGraphicsPipeline()
 {
 	HRESULT result = S_FALSE;
-	ComPtr<ID3DBlob> vsBlob;	// 頂点シェーダオブジェクト
-	ComPtr<ID3DBlob> gsBlob;	// ジオメトリシェーダオブジェクト
+	ComPtr<ID3DBlob> vsBlob; // 頂点シェーダオブジェクト
+	ComPtr<ID3DBlob> gsBlob; // ジオメトリシェーダオブジェクト
 	ComPtr<ID3DBlob> psBlob;	// ピクセルシェーダオブジェクト
 	ComPtr<ID3DBlob> errorBlob; // エラーオブジェクト
 
@@ -279,7 +272,12 @@ void ParticleManager::InitializeGraphicsPipeline()
 			D3D12_APPEND_ALIGNED_ELEMENT,
 			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
 		},
-		{ // xy座標(1行で書いたほうが見やすい)
+		//{ // 法線ベクトル(1行で書いたほうが見やすい)
+		//	"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,
+		//	D3D12_APPEND_ALIGNED_ELEMENT,
+		//	D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
+		//},
+		{ // スケール(1行で書いたほうが見やすい)
 			"TEXCOORD", 0, DXGI_FORMAT_R32_FLOAT, 0,
 			D3D12_APPEND_ALIGNED_ELEMENT,
 			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
@@ -305,28 +303,29 @@ void ParticleManager::InitializeGraphicsPipeline()
 	D3D12_RENDER_TARGET_BLEND_DESC blenddesc{};
 	blenddesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;	// RBGA全てのチャンネルを描画
 	blenddesc.BlendEnable = true;
-	/*blenddesc.BlendOp = D3D12_BLEND_OP_ADD;
-	blenddesc.SrcBlend = D3D12_BLEND_SRC_ALPHA;
-	blenddesc.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;*/
-	// 加算合成
+	//半透明合成
+	//blenddesc.BlendOp = D3D12_BLEND_OP_ADD;
+	//blenddesc.SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	//blenddesc.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+	//加算合成
 	blenddesc.BlendOp = D3D12_BLEND_OP_ADD;
 	blenddesc.SrcBlend = D3D12_BLEND_ONE;
 	blenddesc.DestBlend = D3D12_BLEND_ONE;
-	//// 減算合成
-	//blenddesc.BlendOp = D3D12_BLEND_OP_REV_SUBTRACT;
-	//blenddesc.SrcBlend = D3D12_BLEND_ONE;
-	//blenddesc.DestBlend = D3D12_BLEND_ONE;
+	//減算合成
+	/*blenddesc.BlendOp = D3D12_BLEND_OP_REV_SUBTRACT;
+	blenddesc.SrcBlend = D3D12_BLEND_ONE;
+	blenddesc.DestBlend = D3D12_BLEND_ONE;*/
 
 	blenddesc.BlendOpAlpha = D3D12_BLEND_OP_ADD;
 	blenddesc.SrcBlendAlpha = D3D12_BLEND_ONE;
 	blenddesc.DestBlendAlpha = D3D12_BLEND_ZERO;
 
-	// デプスの書き込みを禁止
+	//デプスの書き込みを禁止
 	gpipeline.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
 
 	// ブレンドステートの設定
 	gpipeline.BlendState.RenderTarget[0] = blenddesc;
-
+	//gpipeline.BlendState.AlphaToCoverageEnable = true;
 	// 深度バッファのフォーマット
 	gpipeline.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 
@@ -335,7 +334,6 @@ void ParticleManager::InitializeGraphicsPipeline()
 	gpipeline.InputLayout.NumElements = _countof(inputLayout);
 
 	// 図形の形状設定（三角形）
-	//gpipeline.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	gpipeline.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
 
 	gpipeline.NumRenderTargets = 1;	// 描画対象は1つ
@@ -449,150 +447,6 @@ void ParticleManager::CreateModel()
 {
 	HRESULT result = S_FALSE;
 
-	//std::vector<VertexPosNormalUv> realVertices;
-#pragma region 頂点座標の計算
-	//// 頂点座標の計算（重複あり）
-	//{
-	//	realVertices.resize((division + 1) * 2);
-	//	int index = 0;
-	//	float zValue;
-
-	//	// 底面
-	//	zValue = prizmHeight / 2.0f;
-	//	for (int i = 0; i < division; i++)
-	//	{
-	//		XMFLOAT3 vertex;
-	//		vertex.x = radius * sinf(XM_2PI / division * i);
-	//		vertex.y = radius * cosf(XM_2PI / division * i);
-	//		vertex.z = zValue;
-	//		realVertices[index++].pos = vertex;
-	//	}
-	//	realVertices[index++].pos = XMFLOAT3(0, 0, zValue);	// 底面の中心点
-	//	// 天面
-	//	zValue = -prizmHeight / 2.0f;
-	//	for (int i = 0; i < division; i++)
-	//	{
-	//		XMFLOAT3 vertex;
-	//		vertex.x = radius * sinf(XM_2PI / division * i);
-	//		vertex.y = radius * cosf(XM_2PI / division * i);
-	//		vertex.z = zValue;
-	//		realVertices[index++].pos = vertex;
-	//	}
-	//	realVertices[index++].pos = XMFLOAT3(0, 0, zValue);	// 天面の中心点
-	//}
-
-	//// 頂点座標の計算（重複なし）
-	//{
-	//	int index = 0;
-	//	// 底面
-	//	for (int i = 0; i < division; i++)
-	//	{
-	//		unsigned short index0 = i + 1;
-	//		unsigned short index1 = i;
-	//		unsigned short index2 = division;
-
-	//		vertices[index++] = realVertices[index0];
-	//		vertices[index++] = realVertices[index1];
-	//		vertices[index++] = realVertices[index2]; // 底面の中心点
-	//	}
-	//	// 底面の最後の三角形の1番目のインデックスを0に書き換え
-	//	vertices[index - 3] = realVertices[0];
-
-	//	int topStart = division + 1;
-	//	// 天面
-	//	for (int i = 0; i < division; i++)
-	//	{
-	//		unsigned short index0 = topStart + i;
-	//		unsigned short index1 = topStart + i + 1;
-	//		unsigned short index2 = topStart + division;
-
-	//		vertices[index++] = realVertices[index0];
-	//		vertices[index++] = realVertices[index1];
-	//		vertices[index++] = realVertices[index2]; // 天面の中心点
-	//	}
-	//	// 天面の最後の三角形の1番目のインデックスを0に書き換え
-	//	vertices[index - 2] = realVertices[topStart];
-
-	//	// 側面
-	//	for (int i = 0; i < division; i++)
-	//	{
-	//		unsigned short index0 = i + 1;
-	//		unsigned short index1 = topStart + i + 1;
-	//		unsigned short index2 = i;
-	//		unsigned short index3 = topStart + i;
-
-	//		if (i == division - 1)
-	//		{
-	//			index0 = 0;
-	//			index1 = topStart;
-	//		}
-
-	//		vertices[index++] = realVertices[index0];
-	//		vertices[index++] = realVertices[index1];
-	//		vertices[index++] = realVertices[index2];
-
-	//		vertices[index++] = realVertices[index2];
-	//		vertices[index++] = realVertices[index1];
-	//		vertices[index++] = realVertices[index3];
-	//	}
-	//}
-
-	//// 頂点インデックスの設定
-	//{
-	//	for (int i = 0; i < _countof(indices); i++)
-	//	{
-	//		indices[i] = i;
-	//	}
-	//}
-
-	//// 法線方向の計算
-	//for (int i = 0; i < _countof(indices) / 3; i++)
-	//{// 三角形１つごとに計算していく
-	//	// 三角形のインデックスを取得
-	//	unsigned short index0 = indices[i * 3 + 0];
-	//	unsigned short index1 = indices[i * 3 + 1];
-	//	unsigned short index2 = indices[i * 3 + 2];
-	//	// 三角形を構成する頂点座標をベクトルに代入
-	//	XMVECTOR p0 = XMLoadFloat3(&vertices[index0].pos);
-	//	XMVECTOR p1 = XMLoadFloat3(&vertices[index1].pos);
-	//	XMVECTOR p2 = XMLoadFloat3(&vertices[index2].pos);
-	//	// p0→p1ベクトル、p0→p2ベクトルを計算
-	//	XMVECTOR v1 = XMVectorSubtract(p1, p0);
-	//	XMVECTOR v2 = XMVectorSubtract(p2, p0);
-	//	// 外積は両方から垂直なベクトル
-	//	XMVECTOR normal = XMVector3Cross(v1, v2);
-	//	// 正規化（長さを1にする)
-	//	normal = XMVector3Normalize(normal);
-	//	// 求めた法線を頂点データに代入
-	//	XMStoreFloat3(&vertices[index0].normal, normal);
-	//	XMStoreFloat3(&vertices[index1].normal, normal);
-	//	XMStoreFloat3(&vertices[index2].normal, normal);
-	//}
-#pragma endregion
-	//// 四角形の頂点データ
-	//VertexPos verticesPoint[] = {
-	//	{{0.0f,0.0f,0.0f}}//左下
-	//};
-	////メンバ変数にコピー
-	//std::copy(std::begin(verticesPoint), std::end(verticesPoint), vertices);
-
-	//for (int i = 0; i < vertexCount; i++)
-	//{
-	//	//X,Y,Z全て[-5.0f,+5.0f]でランダムに分布
-	//	const float rnd_width = 10.0f;
-	//	vertices[i].pos.x = (float)rand() / RAND_MAX * rnd_width - rnd_width / 2.0f;
-	//	vertices[i].pos.y = (float)rand() / RAND_MAX * rnd_width - rnd_width / 2.0f;
-	//	vertices[i].pos.z = (float)rand() / RAND_MAX * rnd_width - rnd_width / 2.0f;
-	//}
-
-	//四角形のインデックスデータ
-	//unsigned short indicesSpuare[] = {
-	//	0,1,2,//三角形1
-	//	2,1,3,//三角形2
-	//};
-	//メンバ変数にコピー
-	//std::copy(std::begin(indicesSpuare), std::end(indicesSpuare), indices);
-
 	UINT sizeVB = static_cast<UINT>(sizeof(vertices));
 
 	// ヒーププロパティ
@@ -619,33 +473,6 @@ void ParticleManager::CreateModel()
 	vbView.SizeInBytes = sizeof(vertices);
 	vbView.StrideInBytes = sizeof(vertices[0]);
 
-	//UINT sizeIB = static_cast<UINT>(sizeof(indices));
-	// リソース設定
-	//resourceDesc.Width = sizeIB;
-
-	// インデックスバッファ生成
-	/*result = device->CreateCommittedResource(
-		&heapProps, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
-		IID_PPV_ARGS(&indexBuff))*/;
-
-		// インデックスバッファへのデータ転送
-		unsigned short* indexMap = nullptr;
-		//result = indexBuff->Map(0, nullptr, (void**)&indexMap);
-		//if (SUCCEEDED(result)) {
-
-		//	// 全インデックスに対して
-		//	for (int i = 0; i < _countof(indices); i++)
-		//	{
-		//		indexMap[i] = indices[i];	// インデックスをコピー
-		//	}
-
-		//	indexBuff->Unmap(0, nullptr);
-		//}
-
-		// インデックスバッファビューの作成
-		/*ibView.BufferLocation = indexBuff->GetGPUVirtualAddress();
-		ibView.Format = DXGI_FORMAT_R16_UINT;
-		ibView.SizeInBytes = sizeof(indices);*/
 }
 
 void ParticleManager::UpdateViewMatrix()
@@ -655,12 +482,14 @@ void ParticleManager::UpdateViewMatrix()
 
 	// 視点座標
 	XMVECTOR eyePosition = XMLoadFloat3(&eye);
+
 	// 注視点座標
 	XMVECTOR targetPosition = XMLoadFloat3(&target);
-	// （仮の）上方向
+
+	// (仮の) 上方向
 	XMVECTOR upVector = XMLoadFloat3(&up);
 
-	// カメラZ軸（視点方向）
+	// カメラZ軸　(視線方向)
 	XMVECTOR cameraAxisZ = XMVectorSubtract(targetPosition, eyePosition);
 
 	// 0ベクトルだと向きが定まらないので除外
@@ -672,23 +501,27 @@ void ParticleManager::UpdateViewMatrix()
 	// ベクトルを正規化
 	cameraAxisZ = XMVector3Normalize(cameraAxisZ);
 
-	// カメラのX軸（右方向）
+	// カメラのｘ軸（右方向）
 	XMVECTOR cameraAxisX;
-	// X軸は上方向→Z軸の外積で求まる
+
+	// Ｘ軸は上方向ー＞Ｚ軸の外積で求まる
 	cameraAxisX = XMVector3Cross(upVector, cameraAxisZ);
-	// ベクトルを正規化
+
+	//　ベクトルを正規化
 	cameraAxisX = XMVector3Normalize(cameraAxisX);
 
 	// カメラのY軸（上方向）
 	XMVECTOR cameraAxisY;
-	// Y軸はZ軸→X軸の外積で求まる
+
+	// Y軸はZ軸ｰ>X軸の外積で求まる
 	cameraAxisY = XMVector3Cross(cameraAxisZ, cameraAxisX);
-	// ベクトルを正規化
+
+	//　ベクトルを正規化
 	cameraAxisY = XMVector3Normalize(cameraAxisY);
 
 	// カメラ回転行列
 	XMMATRIX matCameraRot;
-	// カメラ座標系→ワールド座標系の変換行列
+	// カメラ座標系ｰ>ワールド座標系の変換行列
 	matCameraRot.r[0] = cameraAxisX;
 	matCameraRot.r[1] = cameraAxisY;
 	matCameraRot.r[2] = cameraAxisZ;
@@ -700,9 +533,10 @@ void ParticleManager::UpdateViewMatrix()
 	// 視点座標に-1をかけた座標
 	XMVECTOR reverseEyePosition = XMVectorNegate(eyePosition);
 	// カメラの位置からワールド原点へのベクトル（カメラ座標系）
-	XMVECTOR tX = XMVector3Dot(cameraAxisX, reverseEyePosition); // X成分
-	XMVECTOR tY = XMVector3Dot(cameraAxisY, reverseEyePosition); // Y成分
-	XMVECTOR tZ = XMVector3Dot(cameraAxisZ, reverseEyePosition); // Z成分
+	XMVECTOR tX = XMVector3Dot(cameraAxisX, reverseEyePosition);
+	XMVECTOR tY = XMVector3Dot(cameraAxisY, reverseEyePosition);
+	XMVECTOR tZ = XMVector3Dot(cameraAxisZ, reverseEyePosition);
+
 	// 一つのベクトルにまとめる
 	XMVECTOR translation = XMVectorSet(tX.m128_f32[0], tY.m128_f32[1], tZ.m128_f32[2], 1.0f);
 
@@ -717,7 +551,7 @@ void ParticleManager::UpdateViewMatrix()
 	matBillboard.r[3] = XMVectorSet(0, 0, 0, 1);
 #pragma endregion
 
-#pragma region Y軸回りビルボード行列の計算
+#pragma region Y軸周りビルボード行列の計算
 	// カメラX軸、Y軸、Z軸
 	XMVECTOR ybillCameraAxisX, ybillCameraAxisY, ybillCameraAxisZ;
 
@@ -728,12 +562,14 @@ void ParticleManager::UpdateViewMatrix()
 	// Z軸はX軸→Y軸の外積で求まる
 	ybillCameraAxisZ = XMVector3Cross(cameraAxisX, cameraAxisY);
 
-	// Y軸ビルボード行列
+	// Y軸周りビルボード行列
 	matBillboardY.r[0] = ybillCameraAxisX;
 	matBillboardY.r[1] = ybillCameraAxisY;
 	matBillboardY.r[2] = ybillCameraAxisZ;
 	matBillboardY.r[3] = XMVectorSet(0, 0, 0, 1);
+
 #pragma endregion
+
 }
 
 bool ParticleManager::Initialize()
@@ -762,61 +598,36 @@ bool ParticleManager::Initialize()
 void ParticleManager::Update()
 {
 	HRESULT result;
-	XMMATRIX matScale;
 
-	// スケール、回転、平行移動行列の計算
-	matScale = XMMatrixScaling(scale.x, scale.y, scale.z);
-	//matRot = XMMatrixIdentity();
-	/*matRot *= XMMatrixRotationZ(XMConvertToRadians(rotation.z));
-	matRot *= XMMatrixRotationX(XMConvertToRadians(rotation.x));
-	matRot *= XMMatrixRotationY(XMConvertToRadians(rotation.y));
-	matTrans = XMMatrixTranslation(position.x, position.y, position.z);*/
+	// 寿命が尽きたパーティクルを全削除
+	particles.remove_if([](Particle& x) {return x.frame >= x.num_frame; });
 
-	// ワールド行列の合成
-	//matWorld = XMMatrixIdentity(); // 変形をリセット
-
-	//matWorld *= matScale; // ワールド行列にスケーリングを反映
-	//matWorld *= matRot; // ワールド行列に回転を反映
-	////matWorld *= matBillboardY; // ビルボード行列を掛ける
-	//matWorld *= matTrans; // ワールド行列に平行移動を反映
-
-	//// 親オブジェクトがあれば
-	//if (parent != nullptr) {
-	//	// 親オブジェクトのワールド行列を掛ける
-	//	matWorld *= parent->matWorld;
-	//}
-
-	// 全パーティクルを更新
-	for (std::forward_list<Particle>::iterator it = particles.begin(); it != particles.end(); it++)
-	{
+	// 全パーティクル更新
+	for (std::forward_list<Particle>::iterator it = particles.begin();
+		it != particles.end();
+		it++) {
 		// 経過フレーム数をカウント
 		it->frame++;
 		// 速度に加速度を加算
 		it->velocity = it->velocity + it->accel;
 		// 速度による移動
 		it->position = it->position + it->velocity;
-		// 進行度を0~1の範囲に換算
+
+		// 進行度を0～1の範囲に換算
 		float f = (float)it->frame / it->num_frame;
 		// スケールの線形補間
 		it->scale = (it->e_scale - it->s_scale) * f;
 		it->scale += it->s_scale;
 	}
 
-	// 寿命が尽きたパーティクルを全削除
-	particles.remove_if([](Particle& x)
-		{
-			return x.frame >= x.num_frame;
-		}
-	);
-
 	// 頂点バッファへデータ転送
 	VertexPos* vertMap = nullptr;
 	result = vertBuff->Map(0, nullptr, (void**)&vertMap);
-	if (SUCCEEDED(result))
-	{
-		// パーティクルの情報を1ずつ反映
-		for (std::forward_list<Particle>::iterator it = particles.begin(); it != particles.end(); it++)
-		{
+	if (SUCCEEDED(result)) {
+		// パーティクルの情報を一つずつ反映
+		for (std::forward_list<Particle>::iterator it = particles.begin();
+			it != particles.end();
+			it++) {
 			// 座標
 			vertMap->pos = it->position;
 			// スケール
@@ -854,24 +665,24 @@ void ParticleManager::Draw()
 	cmdList->SetGraphicsRootConstantBufferView(0, constBuff->GetGPUVirtualAddress());
 	// シェーダリソースビューをセット
 	cmdList->SetGraphicsRootDescriptorTable(1, gpuDescHandleSRV);
-	// 描画コマンド
-	//cmdList->DrawIndexedInstanced(_countof(indices), 1, 0, 0, 0);
-	//cmdList->DrawIndexedInstanced(3, 1, 0, 0, 0);
-	//cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);
+	// 描画コマンド_countof(indices)
 	cmdList->DrawInstanced((UINT)std::distance(particles.begin(), particles.end()), 1, 0, 0);
 }
 
-void ParticleManager::Add(int life, XMFLOAT3 position, XMFLOAT3 velocity, XMFLOAT3 accel, float start_scale, float emd_scale)
+void ParticleManager::Add(int life, XMFLOAT3 position, XMFLOAT3 velocity, XMFLOAT3 accel, float start_scale, float end_scale)
 {
-	// リストに要素を追加
+	//リストに要素を追加
 	particles.emplace_front();
-	// 追加した要素の参照
+	//追加した要素の参照
 	Particle& p = particles.front();
-	// 値のセット
+	//値のセット
 	p.position = position;
 	p.velocity = velocity;
 	p.accel = accel;
 	p.num_frame = life;
+	p.scale = start_scale;
+	p.s_scale = start_scale;
+	p.e_scale = end_scale;
 }
 
 void ParticleManager::RandParticle()
@@ -885,7 +696,7 @@ void ParticleManager::RandParticle()
 		pos.y = (float)rand() / RAND_MAX * rnd_pos - rnd_pos / 2.0f;
 		pos.z = (float)rand() / RAND_MAX * rnd_pos - rnd_pos / 2.0f;
 		//X,Y,Z全て[-0.05f,+0.05f]でランダムに分布
-		const float rnd_vel = 0.1f;
+		const float rnd_vel = 5.0f;
 		XMFLOAT3 vel{};
 		vel.x = (float)rand() / RAND_MAX * rnd_vel - rnd_vel / 2.0f;
 		vel.y = (float)rand() / RAND_MAX * rnd_vel - rnd_vel / 2.0f;
@@ -896,6 +707,6 @@ void ParticleManager::RandParticle()
 		acc.y = -(float)rand() / RAND_MAX * rnd_acc;
 
 		// 追加
-		Add(60, pos, vel, acc,1.0f,0.0f);
+		Add(60, pos, vel, acc, 1.0f, 0.0f);
 	}
 }

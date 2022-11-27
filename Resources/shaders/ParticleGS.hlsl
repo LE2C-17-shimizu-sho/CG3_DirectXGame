@@ -28,19 +28,17 @@ void main(
 )
 {
     GSOutput element; // 出力用頂点データ
-    // 4点分まわす
-    for (uint i = 0; i < vnum;i++)
+     //4点分まわす
+    for (uint i = 0; i < vnum; i++)
     {
-        // 中心からのオフセットをビルボード回転
-        float4 offset;
-        //offset = mul(matBillboard, offset_array[i]);
-        // 中心からのオフセットをスケーリング
-        offset = offset_array[i] * input[0].scale;
-        // 中心からのオフセットをビルボード回転(モデル座標)
+        //中心からのオフセットをスケーリング
+        float4 offset = offset_array[i] * input[0].scale;
+        //中心からのオフセットをビルボード回転
         offset = mul(matBillboard, offset);
-        // オフセット分ずらす（ワールド座標）
+        
+        //ワールド座標ベースでずらす
         element.svpos = input[0].pos + offset;
-        // ビュー、射影変換
+        //ビュー、射影変換
         element.svpos = mul(mat, element.svpos);
         element.uv = uv_array[i];
         output.Append(element);
