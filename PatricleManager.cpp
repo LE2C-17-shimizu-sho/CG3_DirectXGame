@@ -25,7 +25,7 @@ CD3DX12_CPU_DESCRIPTOR_HANDLE ParticleManager::cpuDescHandleSRV;
 CD3DX12_GPU_DESCRIPTOR_HANDLE ParticleManager::gpuDescHandleSRV;
 XMMATRIX ParticleManager::matView{};
 XMMATRIX ParticleManager::matProjection{};
-XMFLOAT3 ParticleManager::eye = { 0, 0, -5.0f };
+XMFLOAT3 ParticleManager::eye = { 0, 0, -30.0f };
 XMFLOAT3 ParticleManager::target = { 0, 0, 0 };
 XMFLOAT3 ParticleManager::up = { 0, 1, 0 };
 D3D12_VERTEX_BUFFER_VIEW ParticleManager::vbView{};
@@ -35,6 +35,16 @@ ParticleManager::VertexPos ParticleManager::vertices[vertexCount];
 //unsigned short Object3d::indices[indexCount];
 XMMATRIX ParticleManager::matBillboard = XMMatrixIdentity();
 XMMATRIX ParticleManager::matBillboardY = XMMatrixIdentity();
+
+// XMFLOAT3同士の加算処理
+const DirectX::XMFLOAT3 operator+(const DirectX::XMFLOAT3& lhs, const DirectX::XMFLOAT3& rhs)
+{
+	XMFLOAT3 result;
+	result.x = lhs.x + rhs.x;
+	result.y = lhs.y + rhs.y;
+	result.z = lhs.z + rhs.z;
+	return result;
+}
 
 void ParticleManager::StaticInitialize(ID3D12Device* device, int window_width, int window_height)
 {
@@ -290,13 +300,24 @@ void ParticleManager::InitializeGraphicsPipeline()
 	D3D12_RENDER_TARGET_BLEND_DESC blenddesc{};
 	blenddesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;	// RBGA全てのチャンネルを描画
 	blenddesc.BlendEnable = true;
-	blenddesc.BlendOp = D3D12_BLEND_OP_ADD;
+	/*blenddesc.BlendOp = D3D12_BLEND_OP_ADD;
 	blenddesc.SrcBlend = D3D12_BLEND_SRC_ALPHA;
-	blenddesc.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+	blenddesc.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;*/
+	// 加算合成
+	blenddesc.BlendOp = D3D12_BLEND_OP_ADD;
+	blenddesc.SrcBlend = D3D12_BLEND_ONE;
+	blenddesc.DestBlend = D3D12_BLEND_ONE;
+	//// 減算合成
+	//blenddesc.BlendOp = D3D12_BLEND_OP_REV_SUBTRACT;
+	//blenddesc.SrcBlend = D3D12_BLEND_ONE;
+	//blenddesc.DestBlend = D3D12_BLEND_ONE;
 
 	blenddesc.BlendOpAlpha = D3D12_BLEND_OP_ADD;
 	blenddesc.SrcBlendAlpha = D3D12_BLEND_ONE;
 	blenddesc.DestBlendAlpha = D3D12_BLEND_ZERO;
+
+	// デプスの書き込みを禁止
+	gpipeline.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
 
 	// ブレンドステートの設定
 	gpipeline.BlendState.RenderTarget[0] = blenddesc;
@@ -355,7 +376,7 @@ void ParticleManager::LoadTexture()
 	ScratchImage scratchImg{};
 
 	// WICテクスチャのロード
-	result = LoadFromWICFile(L"Resources/tex1.png", WIC_FLAGS_NONE, &metadata, scratchImg);
+	result = LoadFromWICFile(L"Resources/effect1.png", WIC_FLAGS_NONE, &metadata, scratchImg);
 	assert(SUCCEEDED(result));
 
 	ScratchImage mipChain{};
@@ -550,14 +571,14 @@ void ParticleManager::CreateModel()
 	////メンバ変数にコピー
 	//std::copy(std::begin(verticesPoint), std::end(verticesPoint), vertices);
 
-	for (int i = 0; i < vertexCount; i++)
-	{
-		//X,Y,Z全て[-5.0f,+5.0f]でランダムに分布
-		const float rnd_width = 10.0f;
-		vertices[i].pos.x = (float)rand() / RAND_MAX * rnd_width - rnd_width / 2.0f;
-		vertices[i].pos.y = (float)rand() / RAND_MAX * rnd_width - rnd_width / 2.0f;
-		vertices[i].pos.z = (float)rand() / RAND_MAX * rnd_width - rnd_width / 2.0f;
-	}
+	//for (int i = 0; i < vertexCount; i++)
+	//{
+	//	//X,Y,Z全て[-5.0f,+5.0f]でランダムに分布
+	//	const float rnd_width = 10.0f;
+	//	vertices[i].pos.x = (float)rand() / RAND_MAX * rnd_width - rnd_width / 2.0f;
+	//	vertices[i].pos.y = (float)rand() / RAND_MAX * rnd_width - rnd_width / 2.0f;
+	//	vertices[i].pos.z = (float)rand() / RAND_MAX * rnd_width - rnd_width / 2.0f;
+	//}
 
 	//四角形のインデックスデータ
 	//unsigned short indicesSpuare[] = {
@@ -736,7 +757,7 @@ bool ParticleManager::Initialize()
 void ParticleManager::Update()
 {
 	HRESULT result;
-	XMMATRIX matScale, matRot, matTrans;
+	XMMATRIX matScale;
 
 	// スケール、回転、平行移動行列の計算
 	matScale = XMMatrixScaling(scale.x, scale.y, scale.z);
@@ -760,10 +781,43 @@ void ParticleManager::Update()
 	//	matWorld *= parent->matWorld;
 	//}
 
+	// 全パーティクルを更新
+	for (std::forward_list<Particle>::iterator it = particles.begin(); it != particles.end(); it++)
+	{
+		// 経過フレーム数をカウント
+		it->frame++;
+		// 速度に加速度を加算
+		it->velocity = it->velocity + it->accel;
+		// 速度による移動
+		it->position = it->position + it->velocity;
+	}
+
+	// 寿命が尽きたパーティクルを全削除
+	particles.remove_if([](Particle& x)
+		{
+			return x.frame >= x.num_frame;
+		}
+	);
+
+	// 頂点バッファへデータ転送
+	VertexPos* vertMap = nullptr;
+	result = vertBuff->Map(0, nullptr, (void**)&vertMap);
+	if (SUCCEEDED(result))
+	{
+		// パーティクルの情報を1ずつ反映
+		for (std::forward_list<Particle>::iterator it = particles.begin(); it != particles.end(); it++)
+		{
+			// 座標
+			vertMap->pos = it->position;
+			// 次の頂点へ
+			vertMap++;
+		}
+		vertBuff->Unmap(0, nullptr);
+	}
+
 	// 定数バッファへデータ転送
 	ConstBufferData* constMap = nullptr;
 	result = constBuff->Map(0, nullptr, (void**)&constMap);
-	//constMap->color = color;
 	constMap->mat = matView * matProjection;	// 行列の合成
 	constMap->matBillboard = matBillboard;
 	constBuff->Unmap(0, nullptr);
@@ -791,5 +845,45 @@ void ParticleManager::Draw()
 	// 描画コマンド
 	//cmdList->DrawIndexedInstanced(_countof(indices), 1, 0, 0, 0);
 	//cmdList->DrawIndexedInstanced(3, 1, 0, 0, 0);
-	cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);
+	//cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);
+	cmdList->DrawInstanced((UINT)std::distance(particles.begin(), particles.end()), 1, 0, 0);
+}
+
+void ParticleManager::Add(int life, XMFLOAT3 position, XMFLOAT3 velocity, XMFLOAT3 accel)
+{
+	// リストに要素を追加
+	particles.emplace_front();
+	// 追加した要素の参照
+	Particle& p = particles.front();
+	// 値のセット
+	p.position = position;
+	p.velocity = velocity;
+	p.accel = accel;
+	p.num_frame = life;
+}
+
+void ParticleManager::RandParticle()
+{
+	for (int i = 0; i < 100; i++)
+	{
+		//X,Y,Z全て[-5.0f,+5.0f]でランダムに分布
+		const float rnd_pos = 10.0f;
+		XMFLOAT3 pos{};
+		pos.x = (float)rand() / RAND_MAX * rnd_pos - rnd_pos / 2.0f;
+		pos.y = (float)rand() / RAND_MAX * rnd_pos - rnd_pos / 2.0f;
+		pos.z = (float)rand() / RAND_MAX * rnd_pos - rnd_pos / 2.0f;
+		//X,Y,Z全て[-0.05f,+0.05f]でランダムに分布
+		const float rnd_vel = 5.1f;
+		XMFLOAT3 vel{};
+		vel.x = (float)rand() / RAND_MAX * rnd_vel - rnd_vel / 2.0f;
+		vel.y = (float)rand() / RAND_MAX * rnd_vel - rnd_vel / 2.0f;
+		vel.z = (float)rand() / RAND_MAX * rnd_vel - rnd_vel / 2.0f;
+		// 重力に見立ててYのみ[-0.001f,0]でランダムに分布
+		XMFLOAT3 acc{};
+		const float rnd_acc = 0.001f;
+		acc.y = -(float)rand() / RAND_MAX * rnd_acc;
+
+		// 追加
+		Add(60, pos, vel, acc);
+	}
 }

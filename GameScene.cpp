@@ -78,7 +78,7 @@ void GameScene::Update()
 	}
 
 	particleMan->Update();
-
+	particleMan->RandParticle();
 	//スペースキーを押していたら
 	if (input->PushKey(DIK_SPACE))
 	{
