@@ -28,6 +28,7 @@ public: // サブクラス
 	{
 		XMFLOAT3 pos; // xyz座標
 		float scale; // スケール
+		XMFLOAT4 color;
 	};
 
 	// 定数バッファ用データ構造体
@@ -59,6 +60,10 @@ public: // サブクラス
 		float s_scale = 1.0f;
 		// 最終値
 		float e_scale = 0.0f;
+		// 色
+		XMFLOAT4 color = { 1,1,1,1 };
+		XMFLOAT4 s_color = { 1,0,0,1 };
+		XMFLOAT4 e_color = { 1,1,1,1 };
 	};
 
 private: // 定数
@@ -233,7 +238,7 @@ public: // メンバ関数
 	/// <param name="position">初期座標</param>
 	/// <param name="velocity">速度</param>
 	/// <param name="accel">加速度</param>
-	void Add(int life, XMFLOAT3 position, XMFLOAT3 velocity, XMFLOAT3 accel,float start_scale,float end_scale);
+	void Add(int life, XMFLOAT3 position, XMFLOAT3 velocity, XMFLOAT3 accel,float start_scale,float end_scale,XMFLOAT4 s_color, XMFLOAT4 e_color);
 
 	/// <summary>
 	/// ランダム値を設定
@@ -255,7 +260,7 @@ public: // メンバ関数
 private: // メンバ変数
 	ComPtr<ID3D12Resource> constBuff; // 定数バッファ
 	//// 色
-	//XMFLOAT4 color = { 1,1,1,1 };
+	//XMFLOAT4 color_ = { 1,1,1,1 };
 	// ローカルスケール
 	XMFLOAT3 scale = { 1,1,1 };
 	//// X,Y,Z軸回りのローカル回転角

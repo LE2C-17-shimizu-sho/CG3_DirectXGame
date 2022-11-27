@@ -355,7 +355,7 @@ void Object3d::LoadTexture()
 	ScratchImage scratchImg{};
 
 	// WICテクスチャのロード
-	result = LoadFromWICFile( L"Resources/tex1.png", WIC_FLAGS_NONE, &metadata, scratchImg);
+	result = LoadFromWICFile( L"Resources/Player.png", WIC_FLAGS_NONE, &metadata, scratchImg);
 	assert(SUCCEEDED(result));
 
 	ScratchImage mipChain{};
@@ -550,14 +550,6 @@ void Object3d::CreateModel()
 	//メンバ変数にコピー
 	std::copy(std::begin(verticesPoint), std::end(verticesPoint), vertices);
 
-	//四角形のインデックスデータ
-	//unsigned short indicesSpuare[] = {
-	//	0,1,2,//三角形1
-	//	2,1,3,//三角形2
-	//};
-	//メンバ変数にコピー
-	//std::copy(std::begin(indicesSpuare), std::end(indicesSpuare), indices);
-
 	UINT sizeVB = static_cast<UINT>(sizeof(vertices));
 
 	// ヒーププロパティ
@@ -583,34 +575,6 @@ void Object3d::CreateModel()
 	vbView.BufferLocation = vertBuff->GetGPUVirtualAddress();
 	vbView.SizeInBytes = sizeof(vertices);
 	vbView.StrideInBytes = sizeof(vertices[0]);
-
-	//UINT sizeIB = static_cast<UINT>(sizeof(indices));
-	// リソース設定
-	//resourceDesc.Width = sizeIB;
-
-	// インデックスバッファ生成
-	/*result = device->CreateCommittedResource(
-		&heapProps, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
-		IID_PPV_ARGS(&indexBuff))*/;
-
-	// インデックスバッファへのデータ転送
-	unsigned short* indexMap = nullptr;
-	//result = indexBuff->Map(0, nullptr, (void**)&indexMap);
-	//if (SUCCEEDED(result)) {
-
-	//	// 全インデックスに対して
-	//	for (int i = 0; i < _countof(indices); i++)
-	//	{
-	//		indexMap[i] = indices[i];	// インデックスをコピー
-	//	}
-
-	//	indexBuff->Unmap(0, nullptr);
-	//}
-
-	// インデックスバッファビューの作成
-	/*ibView.BufferLocation = indexBuff->GetGPUVirtualAddress();
-	ibView.Format = DXGI_FORMAT_R16_UINT;
-	ibView.SizeInBytes = sizeof(indices);*/
 }
 
 void Object3d::UpdateViewMatrix()
@@ -676,10 +640,10 @@ void Object3d::UpdateViewMatrix()
 
 #pragma region 全方向ビルボード行列の計算
 	// ビルボード行列
-	/*matBillboard.r[0] = cameraAxisX;
+	matBillboard.r[0] = cameraAxisX;
 	matBillboard.r[1] = cameraAxisY;
 	matBillboard.r[2] = cameraAxisZ;
-	matBillboard.r[3] = XMVectorSet(0,0,0,1);*/
+	matBillboard.r[3] = XMVectorSet(0,0,0,1);
 #pragma endregion
 
 #pragma region Y軸回りビルボード行列の計算
@@ -741,7 +705,7 @@ void Object3d::Update()
 
 	matWorld *= matScale; // ワールド行列にスケーリングを反映
 	matWorld *= matRot; // ワールド行列に回転を反映
-	//matWorld *= matBillboardY; // ビルボード行列を掛ける
+	//matWorld *= matBillboard; // ビルボード行列を掛ける
 	matWorld *= matTrans; // ワールド行列に平行移動を反映
 
 	// 親オブジェクトがあれば
@@ -755,6 +719,41 @@ void Object3d::Update()
 	result = constBuff->Map(0, nullptr, (void**)&constMap);
 	//constMap->color = color;
 	constMap->mat = matView * matProjection;	// 行列の合成
+	constBuff->Unmap(0, nullptr);
+}
+
+void Object3d::BillBoardUpdate()
+{
+	HRESULT result;
+	XMMATRIX matScale, matRot, matTrans;
+
+	// スケール、回転、平行移動行列の計算
+	matScale = XMMatrixScaling(scale.x, scale.y, scale.z);
+	matRot = XMMatrixIdentity();
+	matRot *= XMMatrixRotationZ(XMConvertToRadians(rotation.z));
+	matRot *= XMMatrixRotationX(XMConvertToRadians(rotation.x));
+	matRot *= XMMatrixRotationY(XMConvertToRadians(rotation.y));
+	matTrans = XMMatrixTranslation(position.x, position.y, position.z);
+
+	// ワールド行列の合成
+	matWorld = XMMatrixIdentity(); // 変形をリセット
+
+	matWorld *= matScale; // ワールド行列にスケーリングを反映
+	matWorld *= matRot; // ワールド行列に回転を反映
+	matWorld *= matBillboard; // ビルボード行列を掛ける
+	matWorld *= matTrans; // ワールド行列に平行移動を反映
+
+	// 親オブジェクトがあれば
+	if (parent != nullptr) {
+		// 親オブジェクトのワールド行列を掛ける
+		matWorld *= parent->matWorld;
+	}
+
+	// 定数バッファへデータ転送
+	ConstBufferData* constMap = nullptr;
+	result = constBuff->Map(0, nullptr, (void**)&constMap);
+	//constMap->color = color;
+	constMap->mat = matWorld * matView * matProjection;	// 行列の合成
 	constBuff->Unmap(0, nullptr);
 }
 
@@ -778,7 +777,5 @@ void Object3d::Draw()
 	// シェーダリソースビューをセット
 	cmdList->SetGraphicsRootDescriptorTable(1, gpuDescHandleSRV);
 	// 描画コマンド
-	//cmdList->DrawIndexedInstanced(_countof(indices), 1, 0, 0, 0);
-	//cmdList->DrawIndexedInstanced(3, 1, 0, 0, 0);
 	cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);
 }

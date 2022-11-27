@@ -195,6 +195,11 @@ public: // メンバ関数
 	void Update();
 
 	/// <summary>
+	/// ビルボード付き毎フレーム更新
+	/// </summary>
+	void BillBoardUpdate();
+
+	/// <summary>
 	/// 描画
 	/// </summary>
 	void Draw();

@@ -5,6 +5,7 @@
 #include "Input.h"
 #include "Sprite.h"
 #include "ParticleManager.h"
+#include "Object3d.h"
 #include "DebugText.h"
 
 /// <summary>
@@ -59,11 +60,22 @@ private: // メンバ変数
 	Sprite* sprite1 = nullptr;
 	Sprite* sprite2 = nullptr;
 
+	Sprite* texture = nullptr;
+
 	/// <summary>
 	/// ゲームシーン用
 	/// </summary>
 	Sprite* spriteBG = nullptr;
+	Object3d* object3d = nullptr;
 	ParticleManager* particleMan = nullptr;
+
+	enum class Scene
+	{
+		Billboard,
+		Particle,
+	};
+
+	Scene scene_ = Scene::Billboard;
 };
 
 template<typename T>
